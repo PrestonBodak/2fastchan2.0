@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Oops!</title>
+
+        <link rel="icon" href="/2fastlogo.png">
+        <link rel="stylesheet" href="/styling.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    </head>
+
+    <body>
+        <header class="d-flex flex-row">
+            <img style="margin: 6px" height="100px" width="100px" src="/2fastlogo.png" alt="Logo" onclick="window.location.href = '/'">
+              <h1 style="position: relative; bottom: -25px" class="font-weight-bold">2fastchan</h1>
+              <h3 style="position: relative; bottom: -25px">v2.0</h3>
+        </header>
+
+        <div class="d-flex flex-row" style="background-color: lightslategray; width: 1000px; margin: auto; margin-top: 10%; padding: 20px;">
+            <img src="/error.png" id="sad" alt=":(" height="200px">
+            <h1>It looks like the page you're looking for doesn't exist.</h1>
+        </div>
+
+        <audio id="linkAudio" src="/thud.mp3"></audio>
+
+        <script>
+            document.getElementById("sad").addEventListener("click", function() {
+                document.getElementById("linkAudio").play();
+            })
+        </script>
+    </body>
+</html>

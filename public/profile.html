@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- links -->
+        <link rel="icon" href="/2fastlogo.png">
+        <link rel="stylesheet" href="/styling.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+        <!-- metadata -->
+        <meta name="robots" content="index,follow" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta charset="utf-8" />
+        <meta name="description" content="No other social media platform can go this fast. 2fast."/>
+    </head>
+    <script>
+        var user = null;
+
+        function fillProfile() {
+            let url = window.location.href;
+
+            //request object to ask for a profile from the profile name in the url (enables profile sharing)
+            let obj = {
+                type: "profile",
+                name: url.substring(url.indexOf("profile/") + 8, (url.charAt(url.length - 1) == '/' ? url.length - 1 : url.length))
+            }
+            
+            postOut(obj).then(function(value) {
+                user = JSON.parse(value);
+                console.log(user);
+
+                document.title = user.username + "'s Profile";
+                
+                document.getElementById("profilepic").src = user.pfp == undefined ? "/empty.jpg" : user.pfp;
+                document.getElementById("username").innerHTML = user.username;
+                document.getElementById("uid").innerHTML = "User ID: " + user.uid;
+                document.getElementById("desc").innerHTML = "Description: " + user.description;
+                document.getElementById("likes").innerHTML = "Liked Posts: " + user.likedPosts.length;
+                document.getElementById("followers").innerHTML = "Followers: " + user.followers.length;
+                document.getElementById("following").innerHTML = "Following: " + user.following.length;
+            });
+        }
+
+        //takes an object, posts it, and returns a response from the server
+        function postOut(obj) {
+            return new Promise(function(res, err) {
+            let xml = new XMLHttpRequest();
+            xml.open("POST", "/index.js");
+            xml.setRequestHeader("Content-Type", "application/json");
+            
+            //call the resolve function with the response when we're done
+            xml.onreadystatechange = function() {
+                if(this.readyState == XMLHttpRequest.DONE)
+                res(this.responseText);
+            };
+
+            //send the object
+            xml.send(JSON.stringify(obj));
+            });
+        }
+
+        function share() {
+            let copyText = document.createElement("textarea");
+            copyText.value = window.location.href;
+            document.body.appendChild(copyText);
+            copyText.select();
+            document.execCommand("copy");
+            document.body.removeChild(copyText);
+            
+            alert("Copied profile link to clipboard!");
+        }
+    </script>
+
+    <body onload="fillProfile()">
+        <header class="d-flex flex-row">
+            <img style="margin: 6px" height="100px" width="100px" src="/2fastlogo.png" alt="Logo" onclick="window.location.href = '/'">
+              <h1 style="position: relative; bottom: -25px" class="font-weight-bold">2fastchan</h1>
+              <h3 style="position: relative; bottom: -25px">v2.0</h3>
+            
+            <div id="header-buttons">
+              <button class="btn text-light bg-dark" id="shareButton" onclick="share()">Share Profile</button>
+              <button class="btn text-light bg-dark" id="backButton" onclick="window.location.href = '/'">Back</button>
+            </div>
+        </header>
+
+        <div id="profileBox">
+            <div style="padding-bottom: 10px;" class="d-flex flex-row">
+                <img id="profilepic" width="150" height="150" src="/loading.gif" alt="PFP">
+                <div class="d-flex flex-column">
+                    <h3 class="font-weight-bold" id="username" style="position: relative; bottom: -20px; right: -22px;"></h3>
+                    <h4 id="uid" style="position: relative; right: -22px; bottom: -20px;"></h4>
+                </div>
+            </div>
+            <p id="desc"></p>
+            <p id="likes"></p>
+            <p id="followers"></p>
+            <p id="following"></p>
+        </div>
+       
+    </body>
+</html>

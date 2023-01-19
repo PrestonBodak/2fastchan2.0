@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>2fastchan</title>
+
+    <!-- links -->
+    <link rel="icon" href="2fastlogo.png">
+    <link rel="stylesheet" href="styling.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <!-- metadata -->
+    <meta name="robots" content="index,follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
+    <meta name="description" content="No other social media platform can go this fast. 2fast."/>
+  </head>
+
+  <body onload="setup()">
+    <script>
+      class User {
+        constructor(username, password, pfp, description) {
+          this.type = "user";
+          this.uid = null;
+          this.username = username;
+          this.password = password;
+          //base64 encode of the image for storage
+          this.pfp = pfp;
+          this.description = description;
+
+          //list of PIDs to display on profile
+          this.likedPosts = [];
+
+          //UIDs of followers and following
+          this.followers = [];
+          this.following = [];
+        }
+
+        setUid(uid) {
+          this.uid = uid;
+        }
+      }
+
+      class Post {
+        constructor(text) {
+          this.type = "post";
+          this.pid = null;
+          this.likes = 0;
+          //list of other PIDs
+          this.comments = [];
+          this.text = text;
+
+          let dateEnv = new Date();
+          this.date = dateEnv.toLocaleDateString() + " " + (dateEnv.toTimeString().substring(0, dateEnv.toTimeString().indexOf(" ")));
+        }
+      }
+      
+
+      //globals
+      var user = null;
+      var curFile = null;
+      //visits represents visits to the server to get posts to display
+      //lets the server know which chunk of posts we need
+      var visits = 0;
+
+      
+      //call various setup functions when the page is loaded
+      function setup() {
+        initUser();
+        getPosts();
+      }
+      
+      ///if the user was logged in in a past session without logging out, retreive their user data
+      //from storage and log them back in
+      function initUser() {
+        let storedUser = JSON.parse(window.localStorage.getItem("user"));
+
+        //if the user was logged in
+        if(storedUser != null)
+        {
+          user = storedUser;
+
+          //change sign in button to log out button
+          document.getElementById("signButton").innerHTML = "Log Out";
+          document.getElementById("signButton").onclick = logOut;
+
+          //update profile + post button disabled state
+          document.getElementById("profileButton").className = "btn text-light bg-dark";
+          document.getElementById("postButton").className = "btn text-light bg-dark";
+        }
+      }
+
+      function getPosts() {
+        let send = {
+          type: "display",
+          visits: visits
+        };
+
+        //retrieve array of posts to display
+        postOut(send).then(function(value) {
+          let arr = JSON.parse(value);
+          
+          console.log(arr);
+
+          let text = document.createElement("p");
+          
+          for(item of arr)
+          {
+            text.innerHTML += JSON.stringify(item) + ", ";
+          }
+
+          document.body.appendChild(text);
+        });
+
+        visits++;
+      }
+
+      function makeAccount() {
+        let username = document.getElementById("makeUsername").value;
+        let password = document.getElementById("makePassword").value;
+        let description = document.getElementById("makeDescription").value;
+        user = new User(username, password, curFile, description);
+        
+        if(username == "" || password == "" || curFile == null || description == "")
+        {
+          document.getElementById("account-alert").innerHTML = "Invalid input! Please try again.";
+          return;
+        }
+
+        //send user off to server for processing
+        //returns completed user obj (with UID) if success
+        postOut(user).then(function(value) {
+          if(value == "false")
+          {
+            removeGif();
+            document.getElementById("account-alert").innerHTML = "Sorry, that username is taken!";
+            return;
+          }
+          
+          let resp;
+
+          //make sure all fields have been filled
+          resp = JSON.parse(value);
+
+          user = resp;
+
+          //change sign in button to log out button
+          document.getElementById("signButton").innerHTML = "Log Out";
+          document.getElementById("signButton").onclick = logOut;
+
+          //close modal
+          document.getElementById("account-alert").innerHTML = "";
+          document.getElementById("closeAccount").click();
+
+          //update profile + post button disabled state
+          document.getElementById("profileButton").className = "btn text-light bg-dark";
+          document.getElementById("postButton").className = "btn text-light bg-dark";
+
+          //empty form fields
+          document.getElementById("makeUsername").value = "";
+          document.getElementById("makePassword").value = "";
+
+          removeGif();
+        });
+
+        if(document.getElementById("loading") == null)
+        {
+          //add loading gif
+          let loading = document.createElement("img");
+          loading.src = "/loading.gif";
+          loading.id = "loading";
+          loading.style = "width: 150px; height: 150px;";
+          document.getElementById("signFooter").prepend(loading);
+        }
+      }
+
+      function signIn() {
+        let username = document.getElementById("signUsername").value;
+        let password = document.getElementById("signPassword").value;
+        
+        if(username == "" || password == "")
+        {
+          document.getElementById("sign-alert").innerHTML = "Invalid credentials!";
+          return;
+        }
+
+        let obj = {
+          type: "password",
+          username: username,
+          password: password
+        };
+
+        //server will return the user if the log in is successful and "false" otherwise
+        postOut(obj).then(function(value) {
+          console.log("Promise done!");
+          console.log("value: " + value);
+
+          if(value == "false")
+          {
+            removeGif();
+            document.getElementById("sign-alert").innerHTML = "Invalid credentials!";
+            return;
+          }
+
+          let resp = JSON.parse(value);
+
+          console.log(resp);
+
+          user = resp;
+
+          //store the user in the browser to keep them logged in
+          window.localStorage.setItem("user", JSON.stringify(user));
+
+          //change sign in button to log out button
+          document.getElementById("signButton").innerHTML = "Log Out";
+          document.getElementById("signButton").onclick = logOut;
+          $("#signButton").attr("data-target", "");
+
+          //update profile + post button disabled state
+          document.getElementById("profileButton").className = "btn text-light bg-dark";
+          document.getElementById("postButton").className = "btn text-light bg-dark";
+
+          //close modal
+          document.getElementById("sign-alert").innerHTML = "";
+          document.getElementById("closeSign").click();
+
+          //empty form fields
+          document.getElementById("signUsername").value = "";
+          document.getElementById("signPassword").value = "";
+
+          removeGif();
+        });
+
+        if(document.getElementById("loading") == null)
+        {
+          //add loading gif
+          let loading = document.createElement("img");
+          loading.src = "/loading.gif";
+          loading.id = "loading";
+          loading.style = "width: 150px; height: 150px;";
+          document.getElementById("signFooter").prepend(loading);
+        }
+      }
+
+      function logOut() {
+        user = null;
+
+        //clear the user from localstorage so they aren't re-logged in against their will
+        window.localStorage.removeItem("user");
+
+        //change log out button to sign in button
+        document.getElementById("signButton").innerHTML = "Sign In";
+        document.getElementById("sign-alert").innerHTML = "";
+        $("#signButton").attr("data-target", "#signModal");
+
+        //update profile + post button disabled state
+        document.getElementById("profileButton").className = "btn text-light bg-dark disabled";
+        document.getElementById("postButton").className = "btn text-light bg-dark disabled";
+      }
+
+      function removeGif() {
+        if(document.getElementById("loading") != null)
+          document.getElementById("loading").remove();
+      }
+
+      function visitProfile() {
+        if(user != null)
+          window.location.pathname = "/profile/" + user.username;
+      }
+
+      function unsetFile() {
+        curFile = null;
+      }
+
+      //takes an object, posts it, and returns a response from the server
+      function postOut(obj) {
+        return new Promise(function(res, err) {
+          let xml = new XMLHttpRequest();
+          xml.open("POST", "./index.js");
+          xml.setRequestHeader("Content-Type", "application/json");
+          
+          //call the resolve function with the response when we're done
+          xml.onreadystatechange = function() {
+            if(this.readyState == XMLHttpRequest.DONE)
+              res(this.responseText);
+          };
+
+          //send the object
+          xml.send(JSON.stringify(obj));
+        });
+      }
+    </script>
+    
+    <header class="d-flex flex-row">
+      <img style="margin: 6px" height="100px" width="100px" src="2fastlogo.png" alt="Logo">
+        <h1 style="position: relative; bottom: -25px" class="font-weight-bold">2fastchan</h1>
+        <h3 style="position: relative; bottom: -25px">v2.0</h3>
+      <div id="header-buttons">
+        <button class="btn text-light bg-dark disabled" id="postButton">Compose Post</button>
+        <button class="btn text-light bg-dark disabled" id="profileButton" onclick="visitProfile()">My Profile</button>
+        <button class="btn text-light bg-dark" data-toggle="modal" data-target="#accountModal">Make Account</button>
+
+        <!-- TODO: make sign in button -->
+        <button class="btn text-light bg-dark" id="signButton" data-toggle="modal" data-target="#signModal">Sign In</button>
+      </div>
+    </header>
+
+    <!-- Make Account Modal-->
+    <div class="modal fade" id="accountModal" tabindex="-1" role="dialog" aria-labelledby="accountModalCenterTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="accountModalLongTitle">Make an Account</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <form class="d-flex flex-column">
+              <p id="account-alert"></p>
+              <input type="text" id="makeUsername" placeholder="Username" maxlength=20>
+              <input type="password" style="margin-bottom: 8px;" id="makePassword" placeholder="Password">
+              <label for="pfp">Upload a profile picture: </label>
+              <input type="file" name="pfp" id="makeImage">
+              <input type="text" style="height: 50px; margin-top: 8px; margin-bottom: 8px;" id="makeDescription" placeholder="Profile Description" maxlength=120>
+              <input style="position: relative; bottom: -20px" type="button" onclick="makeAccount()" value="Create">
+            </form>
+          </div>
+
+          <div id="makeFooter" class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="closeAccount" data-dismiss="modal" onclick="removeGif()">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Sign In Modal-->
+    <div class="modal fade" id="signModal" tabindex="-1" role="dialog" aria-labelledby="signModalCenterTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="signModalLongTitle">Sign In</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <form class="d-flex flex-column">
+              <p id="sign-alert"></p>
+              <input type="text" id="signUsername" placeholder="Username">
+              <input type="password" id="signPassword" placeholder="Password">
+              <input style="position: relative; bottom: -20px" type="button" onclick="signIn()" value="Sign In">
+            </form>
+          </div>
+
+          <div id="signFooter" class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="closeSign" onclick="removeGif()" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="navigator.vibrate(20000);">vibrate</button>
+
+    <!-- get image from account image upload -->
+    <script>
+      //set curFile equal to the uploaded image's base64 encode
+      document.getElementById("makeImage").addEventListener("change", function(event) {
+        let reader = new FileReader();
+
+        //use onloadened because readAsDataURL is void for some reason?
+        reader.onloadend = function() {
+          curFile = reader.result;
+        };
+
+        reader.readAsDataURL(event.target.files[0]);
+      });
+    </script>
+
+    <!-- bootstrap JS support-->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+</html>
